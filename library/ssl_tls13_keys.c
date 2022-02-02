@@ -136,6 +136,8 @@ static void ssl_tls13_hkdf_encode_label(
     *dst_len = total_hkdf_lbl_len;
 }
 
+#if defined( MBEDTLS_TEST_HOOKS )
+
 MBEDTLS_STATIC_TESTABLE
 int mbedtls_psa_hkdf_extract( psa_algorithm_t alg,
                               const unsigned char *salt, size_t salt_len,
@@ -186,6 +188,8 @@ cleanup:
 
     return( ret );
 }
+
+#endif /* MBEDTLS_TEST_HOOKS */
 
 int mbedtls_ssl_tls13_hkdf_expand_label(
                      mbedtls_md_type_t hash_alg,
