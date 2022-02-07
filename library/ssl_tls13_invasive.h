@@ -28,10 +28,11 @@
 
 #if defined(MBEDTLS_PSA_CRYPTO_C)
 
-int mbedtls_psa_hkdf_extract( psa_algorithm_t alg,
-                              const unsigned char *salt, size_t salt_len,
-                              const unsigned char *ikm, size_t ikm_len,
-                              unsigned char *prk );
+psa_status_t mbedtls_psa_hkdf_extract( psa_algorithm_t alg,
+                                       const unsigned char *salt, size_t salt_len,
+                                       const unsigned char *ikm, size_t ikm_len,
+                                       unsigned char *prk, size_t prk_size,
+                                       size_t *prk_len );
 
 #endif /* MBEDTLS_PSA_CRYPTO_C */
 
