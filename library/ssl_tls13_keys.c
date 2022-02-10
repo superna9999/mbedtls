@@ -139,7 +139,6 @@ static void ssl_tls13_hkdf_encode_label(
 #if defined( MBEDTLS_TEST_HOOKS )
 
 MBEDTLS_STATIC_TESTABLE
-<<<<<<< HEAD
 psa_status_t mbedtls_psa_hkdf_extract( psa_algorithm_t alg,
                                        const unsigned char *salt, size_t salt_len,
                                        const unsigned char *ikm, size_t ikm_len,
@@ -316,8 +315,9 @@ int mbedtls_ssl_tls13_hkdf_expand_label(
                      const unsigned char *ctx, size_t ctx_len,
                      unsigned char *buf, size_t buf_len )
 {
-    const mbedtls_md_info_t *md_info;
+    psa_algorithm_t alg;
     unsigned char hkdf_label[ SSL_TLS1_3_KEY_SCHEDULE_MAX_HKDF_LABEL_LEN ];
+    psa_status_t status = PSA_ERROR_CORRUPTION_DETECTED;
     size_t hkdf_label_len;
 
     if( label_len > MBEDTLS_SSL_TLS1_3_KEY_SCHEDULE_MAX_LABEL_LEN )
@@ -340,8 +340,8 @@ int mbedtls_ssl_tls13_hkdf_expand_label(
         return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
     }
 
-    md_info = mbedtls_md_info_from_type( hash_alg );
-    if( md_info == NULL )
+    alg = mbedtls_psa_translate_md( hash_alg );
+    if( !alg )
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
 
     ssl_tls13_hkdf_encode_label( buf_len,
@@ -350,10 +350,14 @@ int mbedtls_ssl_tls13_hkdf_expand_label(
                                  hkdf_label,
                                  &hkdf_label_len );
 
-    return( mbedtls_hkdf_expand( md_info,
-                                 secret, secret_len,
-                                 hkdf_label, hkdf_label_len,
-                                 buf, buf_len ) );
+    status = mbedtls_psa_hkdf_expand( PSA_ALG_HMAC( alg ),
+                                      secret, secret_len,
+                                      hkdf_label, hkdf_label_len,
+                                      buf, buf_len );
+    if( status != PSA_SUCCESS )
+        return( mbedtls_psa_err_translate_ssl( status ) );
+
+    return 0;
 }
 
 /*

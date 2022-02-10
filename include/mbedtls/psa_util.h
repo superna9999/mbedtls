@@ -35,6 +35,7 @@
 
 #include "mbedtls/ecp.h"
 #include "mbedtls/md.h"
+#include "mbedtls/ssl.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/oid.h"
 #include "mbedtls/error.h"
@@ -160,6 +161,30 @@ static inline psa_algorithm_t mbedtls_psa_translate_md( mbedtls_md_type_t md_alg
         return( 0 );
     default:
         return( 0 );
+    }
+}
+
+static inline int mbedtls_psa_err_translate_ssl( psa_status_t status )
+{
+    switch( status )
+    {
+        case PSA_SUCCESS:
+            return( 0 );
+        case PSA_ERROR_NOT_SUPPORTED:
+            return( MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE );
+        case PSA_ERROR_INSUFFICIENT_MEMORY:
+            return( MBEDTLS_ERR_SSL_ALLOC_FAILED );
+        case PSA_ERROR_BAD_STATE:
+            return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
+        /* All other failures */
+        case PSA_ERROR_COMMUNICATION_FAILURE:
+        case PSA_ERROR_HARDWARE_FAILURE:
+        case PSA_ERROR_CORRUPTION_DETECTED:
+            return( MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED );
+        default: /* We return the same as for the 'other failures',
+                  * but list them separately nonetheless to indicate
+                  * which failure conditions we have considered. */
+            return( MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED );
     }
 }
 
