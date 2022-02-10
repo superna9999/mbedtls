@@ -6,6 +6,7 @@
 #include <mbedtls/timing.h>
 #include <mbedtls/debug.h>
 #include <ssl_tls13_keys.h>
+#include <ssl_tls13_invasive.h>
 #include "test/certs.h"
 
 #include <psa/crypto.h>
@@ -3800,6 +3801,69 @@ exit:
     mbedtls_free( buf );
     mbedtls_free( buf_save );
     USE_PSA_DONE( );
+}
+/* END_CASE */
+
+/* BEGIN_CASE depends_on:MBEDTLS_TEST_HOOKS:MBEDTLS_SSL_PROTO_TLS1_3 */
+void psa_hkdf_extract( int alg, char *hex_ikm_string,
+                       char *hex_salt_string, char *hex_prk_string )
+{
+    unsigned char *ikm = NULL;
+    unsigned char *salt = NULL;
+    unsigned char *prk = NULL;
+    unsigned char *output_prk = NULL;
+    size_t ikm_len, salt_len, prk_len, output_prk_size, output_prk_len;
+
+    output_prk_size = PSA_HASH_LENGTH( alg );
+    ASSERT_ALLOC( output_prk, output_prk_size );
+
+    ikm = mbedtls_test_unhexify_alloc( hex_ikm_string, &ikm_len );
+    salt = mbedtls_test_unhexify_alloc( hex_salt_string, &salt_len );
+    prk = mbedtls_test_unhexify_alloc( hex_prk_string, &prk_len );
+
+    PSA_ASSERT( psa_crypto_init() );
+    PSA_ASSERT( mbedtls_psa_hkdf_extract( alg, salt, salt_len,
+                                          ikm, ikm_len,
+                                          output_prk, output_prk_size,
+                                          &output_prk_len ) );
+
+    ASSERT_COMPARE( output_prk, output_prk_len, prk, prk_len );
+
+exit:
+    mbedtls_free( ikm );
+    mbedtls_free( salt );
+    mbedtls_free( prk );
+    mbedtls_free( output_prk );
+
+    PSA_DONE( );
+}
+/* END_CASE */
+
+/* BEGIN_CASE depends_on:MBEDTLS_TEST_HOOKS:MBEDTLS_SSL_PROTO_TLS1_3 */
+void psa_hkdf_extract_ret( int alg, int ret )
+{
+    int output_ret;
+    unsigned char *salt = NULL;
+    unsigned char *ikm = NULL;
+    unsigned char *prk = NULL;
+    size_t salt_len, ikm_len, prk_len;
+
+    ASSERT_ALLOC( prk, PSA_MAC_MAX_SIZE);
+    salt_len = 0;
+    ikm_len = 0;
+    prk_len = 0;
+
+    PSA_ASSERT( psa_crypto_init() );
+    output_ret = mbedtls_psa_hkdf_extract( alg, salt, salt_len,
+                                           ikm, ikm_len,
+                                           prk, PSA_MAC_MAX_SIZE, &prk_len );
+    TEST_ASSERT( output_ret == ret );
+    TEST_ASSERT( prk_len == 0 );
+
+exit:
+    mbedtls_free( prk );
+
+    PSA_DONE( );
 }
 /* END_CASE */
 

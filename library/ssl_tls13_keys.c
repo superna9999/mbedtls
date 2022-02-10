@@ -30,6 +30,9 @@
 
 #include "ssl_misc.h"
 #include "ssl_tls13_keys.h"
+#include "ssl_tls13_invasive.h"
+
+#include "psa/crypto.h"
 
 #define MBEDTLS_SSL_TLS1_3_LABEL( name, string )       \
     .name = string,
@@ -132,6 +135,60 @@ static void ssl_tls13_hkdf_encode_label(
     /* Return total length to the caller.  */
     *dst_len = total_hkdf_lbl_len;
 }
+
+#if defined( MBEDTLS_TEST_HOOKS )
+
+MBEDTLS_STATIC_TESTABLE
+psa_status_t mbedtls_psa_hkdf_extract( psa_algorithm_t alg,
+                                       const unsigned char *salt, size_t salt_len,
+                                       const unsigned char *ikm, size_t ikm_len,
+                                       unsigned char *prk, size_t prk_size,
+                                       size_t *prk_len )
+{
+    unsigned char null_salt[PSA_MAC_MAX_SIZE] = { '\0' };
+    mbedtls_svc_key_id_t key = MBEDTLS_SVC_KEY_ID_INIT;
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+    psa_status_t ret = PSA_ERROR_CORRUPTION_DETECTED;
+
+    if( salt == NULL || salt_len == 0 )
+    {
+        size_t hash_len;
+
+        if( salt_len != 0 )
+        {
+            return( PSA_ERROR_INVALID_ARGUMENT );
+        }
+
+        hash_len = PSA_HASH_LENGTH( alg );
+
+        if( hash_len == 0 )
+        {
+            return( PSA_ERROR_INVALID_ARGUMENT );
+        }
+
+        salt = null_salt;
+        salt_len = hash_len;
+    }
+
+    psa_set_key_usage_flags( &attributes, PSA_KEY_USAGE_SIGN_MESSAGE );
+    psa_set_key_algorithm( &attributes, alg );
+    psa_set_key_type( &attributes, PSA_KEY_TYPE_HMAC );
+
+    ret = psa_import_key( &attributes, salt, salt_len, &key );
+    if( PSA_SUCCESS != ret )
+    {
+        goto cleanup;
+    }
+
+    ret = psa_mac_compute( key, alg, ikm, ikm_len, prk, prk_size, prk_len );
+
+cleanup:
+    psa_destroy_key( key );
+
+    return( ret );
+}
+
+#endif /* MBEDTLS_TEST_HOOKS */
 
 int mbedtls_ssl_tls13_hkdf_expand_label(
                      mbedtls_md_type_t hash_alg,
