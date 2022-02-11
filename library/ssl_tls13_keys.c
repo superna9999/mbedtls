@@ -474,13 +474,19 @@ int mbedtls_ssl_tls13_evolve_secret(
                    unsigned char *secret_new )
 {
     int ret = MBEDTLS_ERR_SSL_INTERNAL_ERROR;
-    size_t hlen, ilen;
+    size_t hlen, ilen, secret_len;
     unsigned char tmp_secret[ MBEDTLS_MD_MAX_SIZE ] = { 0 };
     unsigned char tmp_input [ MBEDTLS_ECP_MAX_BYTES ] = { 0 };
+    psa_status_t status = PSA_ERROR_CORRUPTION_DETECTED;
+    psa_algorithm_t alg;
 
     const mbedtls_md_info_t *md_info;
     md_info = mbedtls_md_info_from_type( hash_alg );
     if( md_info == NULL )
+        return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
+
+    alg = mbedtls_psa_translate_md( hash_alg );
+    if( !alg )
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
 
     hlen = mbedtls_md_get_size( md_info );
@@ -513,12 +519,16 @@ int mbedtls_ssl_tls13_evolve_secret(
     /* HKDF-Extract takes a salt and input key material.
      * The salt is the old secret, and the input key material
      * is the input secret (PSK / ECDHE). */
-    ret = mbedtls_hkdf_extract( md_info,
-                    tmp_secret, hlen,
-                    tmp_input, ilen,
-                    secret_new );
-    if( ret != 0 )
+    status = mbedtls_psa_hkdf_extract( PSA_ALG_HMAC( alg ),
+                                       tmp_secret, hlen,
+                                       tmp_input, ilen,
+                                       secret_new, MBEDTLS_MD_MAX_SIZE,
+                                       &secret_len);
+
+    if( status != PSA_SUCCESS ) {
+        ret = mbedtls_psa_err_translate_ssl( status );
         goto cleanup;
+    }
 
     ret = 0;
 
