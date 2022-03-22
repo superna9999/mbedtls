@@ -574,6 +574,10 @@ static void ssl_handshake_params_init( mbedtls_ssl_handshake_params *handshake )
 #endif
 #if defined(MBEDTLS_ECDH_C)
     mbedtls_ecdh_init( &handshake->ecdh_ctx );
+#if defined(MBEDTLS_USE_PSA_CRYPTO) || defined(MBEDTLS_SSL_PROTO_TLS1_3)
+    handshake->ecdh_psa_privkey = MBEDTLS_SVC_KEY_ID_INIT;
+    handshake->ecdh_psa_shared_key = 0;
+#endif
 #endif
 #if defined(MBEDTLS_KEY_EXCHANGE_ECJPAKE_ENABLED)
     mbedtls_ecjpake_init( &handshake->ecjpake_ctx );
@@ -3091,7 +3095,8 @@ void mbedtls_ssl_handshake_free( mbedtls_ssl_context *ssl )
 
 #if defined(MBEDTLS_ECDH_C) &&                  \
     defined(MBEDTLS_USE_PSA_CRYPTO)
-    psa_destroy_key( handshake->ecdh_psa_privkey );
+    if( handshake->ecdh_psa_shared_key == 0 )
+        psa_destroy_key( handshake->ecdh_psa_privkey );
 #endif /* MBEDTLS_ECDH_C && MBEDTLS_USE_PSA_CRYPTO */
 
 #if defined(MBEDTLS_SSL_PROTO_TLS1_3)
